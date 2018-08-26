@@ -1,0 +1,119 @@
+Python 2.7.14 (v2.7.14:84471935ed, Sep 16 2017, 20:19:30) [MSC v.1500 32 bit
+(Intel)] on win32
+Type "copyright", "credits" or "license()" for more information.
+>>> import I2C_LCD_driver
+from time import *
+import Adafruit_BMP.BMP085 as BMP085
+from RPi_AS3935 import RPi_AS3935
+import RPi.GPIO as GPIO
+from datetime import datetime
+import sys
+import Adafruit_DHT
+import Adafruit_GPIO.SPI as SPI
+import Adafruit_MCP3008
+import time
+import urllib
+import requests
+CLK = 18
+MISO = 23
+MOSI = 24
+CS = 25
+DHTsensor = Adafruit_DHT.DHT22
+mylcd = I2C_LCD_driver.lcd()
+sensor = BMP085.BMP085()
+GPIO.setmode(GPIO.BCM)
+AS3935sensor = RPi_AS3935(address=0x03, bus=1)
+AS3935sensor.set_indoors(True)
+AS3935sensor.set_noise_floor(0)
+AS3935sensor.calibrate(tun_cap=0x0F)
+mcp = Adafruit_MCP3008.MCP3008(clk=CLK, cs=CS, miso=MISO, mosi=MOSI)
+a=1
+def handle_interrupt(channel):
+a=0
+time.sleep(0.003)
+global AS3935sensor
+reason = AS3935sensor.get_interrupt()
+if reason == 0x01:
+print "Noise level too high - adjusting"
+AS3935sensor.raise_noise_floor()
+elif reason == 0x04:
+print "Disturber detected - masking"
+AS3935sensor.set_mask_disturber(True)
+elif reason == 0x08:
+now = datetime.now().strftime('%H:%M:%S - %Y/%m/%d')
+distance = AS3935sensor.get_distance()
+print "We sensed lightning!"
+print "It was " + str(distance) + "km away. (%s)" % now
+print "Energy was" + str(AS3935sensor.get_energy())
+print ""
+mylcd.lcd_display_string(' ', 1)
+mylcd.lcd_display_string(' ', 2)
+str_pad = " " * 16
+my_long_string = "Alert lightning Detected!"
+my_long_string = str_pad + my_long_string
+mylcd.lcd_display_string("Est Dist:" + str(distance) +"Km " , 2)
+for i in range (0, len(my_long_string)):
+lcd_text = my_long_string[i:(i+16)]
+mylcd.lcd_display_string(lcd_text,1)
+sleep(0.4)
+mylcd.lcd_display_string(str_pad,1)
+authkey = '150506Afze9Ckx590c2551' # Your authentication key.
+mobiles = "7829285032,8008252580,8050915026"
+message = "Hai, A Lightning strike is imenent in your area. Estimated distance
+is:" + distance + "Kms. Strike is predicted in 30-45 Minutes.Please stay indoors till
+the storm clears out."
+sender = "THUNDC"
+route = "9"
+values = {'authkey' : authkey,'mobiles' : mobiles,'message' : message,'sender' :
+sender,'route' : route }
+url = "https://control.msg91.com/api/sendhttp.php" # API URL
+postdata = urllib.urlencode(values) # URL encoding the data here.
+try:
+req = requests.get(url, params=postdata)
+except:
+pass
+a=1
+authkey = '150506Afze9Ckx590c2551' # Your authentication key.
+mobiles = "7829285032,8008252580,8050915026,7330739122,8639842038"
+message = "Hai, A Lightning strike is imenent in your area. Estimated distance
+is:10Kms. Strike is predicted in 30-45 Minutes.Please stay indoors till the storm clears
+out."
+sender = "THUNDC"
+route = "9"
+values = {'authkey' : authkey,'mobiles' : mobiles,'message' : message,'sender' :
+sender,'route' : route }
+url = "https://control.msg91.com/api/sendhttp.php" # API URL
+postdata = urllib.urlencode(values) # URL encoding the data here.
+try:
+except:
+req = requests.get(url, params=postdata)
+print req
+pass
+pin = 17
+GPIO.setup(pin, GPIO.IN)
+GPIO.add_event_detect(pin, GPIO.RISING, callback=handle_interrupt)
+mylcd.lcd_display_string("Welcome!!!",1)
+mylcd.lcd_display_string("Lightning Det:ON",2)
+time.sleep(1.5)
+while True:
+while a:
+mylcd.lcd_clear()
+mylcd.lcd_display_string('Lightning Det:ON',2)
+temperature, humidity = Adafruit_DHT.read_retry(DHTsensor, '4')
+values = mcp.read_adc(7)
+mylcd.lcd_display_string('Temp={0:0.2f}*C'.format(sensor.read_temperature()), 1)
+time.sleep(a)
+mylcd.lcd_display_string(' ', 1)
+mylcd.lcd_display_string('Pres={0:0.2f}Pa'.format(sensor.read_pressure()), 1)
+time.sleep(a)
+mylcd.lcd_display_string(' ', 1)
+mylcd.lcd_display_string('Humd={0:0.1f}%'.format(humidity), 1)
+time.sleep(a)
+mylcd.lcd_display_string(' ', 1)
+mylcd.lcd_display_string('AirQuaInd=' + str(values), 1)
+time.sleep(a)
+mylcd.lcd_display_string(' ', 1)
+mylcd.lcd_display_string("Energy=" + str(AS3935sensor.get_energy()), 1)
+time.sleep(a)
+mylcd.lcd_display_string(' ', 1)
+
